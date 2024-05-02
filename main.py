@@ -848,6 +848,8 @@ def set_struct():
                 set_per_save = data_predict[['word', 'predict']]
                 print("set_per_save => ",set_per_save)
                 # status = controller_save_db(set_per_save)
+                feature_col.clear()
+                dataFrame.clear()
                 with ApiClient(configuration) as api_client:
                     line_bot_api = MessagingApi(api_client)
                     line_bot_api.reply_message_with_http_info(
