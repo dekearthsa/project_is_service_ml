@@ -820,7 +820,7 @@ def set_struct():
                 df = image_to_text(base64_img)
                 testing = counting_word(df, arrayThaLang, arrayEngLang, arrayNumLang, arraySymLang)
                 set_feature()
-                print(testing)
+                # print(testing)
                 df_count = pd.DataFrame(data= testing, columns=feature_col)
                 
                 if is_bank == "kbank":
@@ -846,7 +846,8 @@ def set_struct():
                 data_predict = machine_detect_data(df_count)
                 data_predict['word'] = df.word
                 set_per_save = data_predict[['word', 'predict']]
-                print("set_per_save => ",set_per_save)
+                print(set_per_save)
+                result = set_per_save.to_string(index = False) 
                 # status = controller_save_db(set_per_save)
                 feature_col.clear()
                 dataFrame.clear()
@@ -855,7 +856,7 @@ def set_struct():
                     line_bot_api.reply_message_with_http_info(
                         ReplyMessageRequest(
                             replyToken=req['events'][0]['replyToken'],
-                            messages=[TextMessage(text="Hello image")]
+                            messages=[TextMessage(text=result)]
                         )
                     )
 
