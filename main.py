@@ -1,19 +1,47 @@
 import pytesseract 
 import numpy as np 
 import pandas as pd
-from flask import Flask , request
+from flask import Flask , request, abort
 from flask_cors import CORS
 import cv2
 import base64
-from google.cloud import datastore
+import os
+from PIL import Image
+# from google.cloud import datastore
 import pickle
-# from PIL import Image
+# import tempfile
+# import struct
+# import os
+# from embedchain import App
+
+from linebot.v3 import (
+    WebhookHandler
+)
+from linebot.v3.exceptions import (
+    InvalidSignatureError
+)
+from linebot.v3.messaging import (
+    Configuration,
+    ApiClient,
+    MessagingApi,
+    ReplyMessageRequest,
+    TextMessage,
+    MessagingApiBlob
+)
+from linebot.v3.webhooks import (
+    MessageEvent,
+    TextMessageContent,
+    ImageMessageContent
+)
+
 
 app = Flask(__name__) 
 CORS(app)
-client = datastore.Client()
-print(pytesseract.__version__)
+# client = datastore.Client()
+# print(pytesseract.__version__)
 
+configuration = Configuration(access_token='kgM8kCIFBA0Eb+suDBnxQGazzw1MW9pjB3ZJoOWnUtOhzeNwMZsIWEl4KDM2c3ed9KERxJgLpuAeFe2sytzyobjWN7SlYO/bDkdRY++Q/e+taXXeNauKrwBFupKXw/wMZvyyqlYcSZXesC3/36UwpQdB04t89/1O/w1cDnyilFU=')
+handler = WebhookHandler('005e71877b21820807de29bf82954146')
 
 arrayThaLang = ['๑','๒','๓','ภ','๔','ถ','ู','ุ','ึ','๕','ค','๖','ต','๗','จ','๘','ข','๙','ช','ๆ','๐','ไ','ำ','ฎ','พ','ฑ','ะ','ธ','ั','ํ','ี','๊','ณ','ร','ฯ','น','ญ','ย','ฐ','บ','ล','ฟ','ฤ','ห','ฆ','ฏ','ก','ด','โ','เ','ฌ','็','้','่','๋','า','ษ','ส','ศ','ว','ซ','ง','ผ','ป','ฉ','แ','อ','ฮ','ิ','ื','์','ท','ม','ฒ','ใ','ฬ','ฦ','ฝ']
 arrayEngLang = ['q','w','e','r','t','y','u','i','o','p','a','s','d','f','g','h','j','k','l','z','x','c','v','b','n','m','Q','W','E','R','T','Y','U','I','O','P','A','S','D','F','G','H','J','K','L','Z','X','C','V','B','N','M']
@@ -24,6 +52,12 @@ dataFrame = []
 
 
 def image_to_text(base64_img):
+    image_data_base64 = base64.b64encode(base64_img)
+    # print(image_data_base64)
+    # np_array = np.frombuffer(image_data_base64, np.uint8)
+    with open("imageToSave.png", "wb") as fh:
+        fh.write(base64.decodebytes(image_data_base64))
+
     BANK = "kbank"
     word = ""
     word_left = []
@@ -36,9 +70,11 @@ def image_to_text(base64_img):
     line_num = []
     word_num = []
     conf = []
-    img = cv2.imdecode(base64_img, cv2.IMREAD_UNCHANGED)
+    # img = cv2.imdecode(base64_img, cv2.IMREAD_UNCHANGED)
+    # imgGry = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    # print(img)
+    img = Image.open("./imageToSave.png")
     raw_data = pytesseract.image_to_data(img, lang='tha+eng', output_type='data.frame')
-    # print(raw_data)
     for idx,i in enumerate(raw_data.conf):
         if raw_data['level'][idx] == 5:
             word = word + raw_data['text'][idx]
@@ -752,11 +788,7 @@ def controller_save_db(df):
             elif el == 'refcode':
                 # print(el)
                 set_save_data['refcode'] = df.word[idx]
-
-        entity_key = client.key('test') 
-        entity = datastore.Entity(key=entity_key)
-        entity.update(set_save_data)
-        client.put(entity)
+        print("set_save_data => ", set_save_data)
         return "Inserted"
     except:
         print("can't insert into datastore.")
@@ -768,59 +800,78 @@ def debuging():
     if request.method == 'GET':
         return "OK"
     
+
+def handle_content_message(event):
+    with ApiClient(configuration) as api_client:
+        line_bot_blob_api = MessagingApiBlob(api_client)
+        message_content = line_bot_blob_api.get_message_content(message_id=event['message']['id'])
+    return message_content
+
+
 @app.route('/api/savedb', methods = ['POST'])
 def set_struct():
     if request.method == 'POST':
         req = request.get_json(force=True)
-        image_data = base64.b64decode(req['data'])
-        np_array = np.frombuffer(image_data, np.uint8)
-        is_bank = "kbank"
-        # np_array = Image.open("./test/K4.jpg")
-        df = image_to_text(np_array)
-        # is_word = df.word
-        # print(is_word)
-        testing = counting_word(df, arrayThaLang, arrayEngLang, arrayNumLang, arraySymLang)
-        set_feature()
-        # print("testing => ", testing)
-        # print("feature_col => ", feature_col)
-        
-        df_count = pd.DataFrame(data= testing, columns=feature_col)
-        # print(df_count)
-        
-        if is_bank == "kbank":
-            df_count['bank_bll'] = False
-            df_count['bank_kbank'] = True
-            df_count['bank_krungsri'] = False
-            df_count['bank_scb'] = False
-        elif is_bank == "krungsri": 
-            df_count['bank_bll'] = False
-            df_count['bank_kbank'] = False
-            df_count['bank_krungsri'] = True
-            df_count['bank_scb'] = False
-        elif is_bank == "scb":
-            df_count['bank_bll'] = False
-            df_count['bank_kbank'] = False
-            df_count['bank_krungsri'] = False
-            df_count['bank_scb'] = True
-        else:
-            df_count['bank_bll'] = True
-            df_count['bank_kbank'] = False
-            df_count['bank_krungsri'] = False
-            df_count['bank_scb'] = False
+        # print("req => ", req['events'])
+        if req['events'][0]['message']['type'] == "image":
+            try:
+                base64_img = handle_content_message(req['events'][0])
+                is_bank = "kbank"
+                df = image_to_text(base64_img)
+                testing = counting_word(df, arrayThaLang, arrayEngLang, arrayNumLang, arraySymLang)
+                set_feature()
+                print(testing)
+                df_count = pd.DataFrame(data= testing, columns=feature_col)
+                
+                if is_bank == "kbank":
+                    df_count['bank_bll'] = False
+                    df_count['bank_kbank'] = True
+                    df_count['bank_krungsri'] = False
+                    df_count['bank_scb'] = False
+                elif is_bank == "krungsri": 
+                    df_count['bank_bll'] = False
+                    df_count['bank_kbank'] = False
+                    df_count['bank_krungsri'] = True
+                    df_count['bank_scb'] = False
+                elif is_bank == "scb":
+                    df_count['bank_bll'] = False
+                    df_count['bank_kbank'] = False
+                    df_count['bank_krungsri'] = False
+                    df_count['bank_scb'] = True
+                else:
+                    df_count['bank_bll'] = True
+                    df_count['bank_kbank'] = False
+                    df_count['bank_krungsri'] = False
+                    df_count['bank_scb'] = False
+                data_predict = machine_detect_data(df_count)
+                data_predict['word'] = df.word
+                set_per_save = data_predict[['word', 'predict']]
+                print("set_per_save => ",set_per_save)
+                # status = controller_save_db(set_per_save)
+                with ApiClient(configuration) as api_client:
+                    line_bot_api = MessagingApi(api_client)
+                    line_bot_api.reply_message_with_http_info(
+                        ReplyMessageRequest(
+                            replyToken=req['events'][0]['replyToken'],
+                            messages=[TextMessage(text="Hello image")]
+                        )
+                    )
 
-        # print(df_count)
-        ## ML model function ## 
-        data_predict = machine_detect_data(df_count)
-        data_predict['word'] = df.word
-        set_per_save = data_predict[['word', 'predict']]
-        # print(set_per_save)
-        status = controller_save_db(set_per_save)
-        # print(status)
-        # print(data_predict)
-        ## fucntion save data in DB ## 
-        # status = controller_save_db(data_predict)
-        return status
-# set_struct()
+            except InvalidSignatureError:
+                app.logger.info("Invalid signature. Please check your channel access token/channel secret.")
+                abort(400)
+        else:
+            with ApiClient(configuration) as api_client:
+                line_bot_api = MessagingApi(api_client)
+                line_bot_api.reply_message_with_http_info(
+                    ReplyMessageRequest(
+                        replyToken=req['events'][0]['replyToken'],
+                        messages=[TextMessage(text="Hello world")]
+                    )
+                )
+    return "ok"
+
 
 if __name__ == '__main__':
+    # print(os.environ['HOME'])
     app.run(host="0.0.0.0",port=8085)
