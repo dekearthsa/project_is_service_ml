@@ -788,7 +788,7 @@ def controller_save_db(df):
             elif el == 'refcode':
                 # print(el)
                 set_save_data['refcode'] = df.word[idx]
-        print("set_save_data => ", set_save_data)
+        # print("set_save_data => ", set_save_data)
         return "Inserted"
     except:
         print("can't insert into datastore.")
@@ -846,7 +846,7 @@ def set_struct():
                 data_predict = machine_detect_data(df_count)
                 data_predict['word'] = df.word
                 set_per_save = data_predict[['word', 'predict']]
-                print(set_per_save)
+                # print(set_per_save)
                 result = set_per_save.to_string(index = False) 
                 # status = controller_save_db(set_per_save)
                 feature_col.clear()
