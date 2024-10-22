@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 from flask import Flask , request, abort
 from flask_cors import CORS
-import cv2
+# import cv2
 import base64
 import os
 from PIL import Image
@@ -13,6 +13,8 @@ import pickle
 # import struct
 # import os
 # from embedchain import App
+# import sklearn
+# print(sklearn.__version__)
 
 from linebot.v3 import (
     WebhookHandler
@@ -53,8 +55,11 @@ dataFrame = []
 
 def image_to_text(base64_img):
     image_data_base64 = base64.b64encode(base64_img)
-    # print(image_data_base64)
-    # np_array = np.frombuffer(image_data_base64, np.uint8)
+
+
+    # script_dir = os.path.dirname(os.path.abspath(__file__))
+    # model_path = os.path.join(script_dir, 'imageToSave.png')
+
     with open("imageToSave.png", "wb") as fh:
         fh.write(base64.decodebytes(image_data_base64))
 
@@ -70,9 +75,10 @@ def image_to_text(base64_img):
     line_num = []
     word_num = []
     conf = []
-    # img = cv2.imdecode(base64_img, cv2.IMREAD_UNCHANGED)
-    # imgGry = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    # print(img)
+
+    # script_dir = os.path.dirname(os.path.abspath(__file__))
+    # model_path = os.path.join(script_dir, 'imageToSave.png')
+
     img = Image.open("./imageToSave.png")
     raw_data = pytesseract.image_to_data(img, lang='tha+eng', output_type='data.frame')
     for idx,i in enumerate(raw_data.conf):
@@ -756,7 +762,10 @@ def counting_word(data, arrayThaLang, arrayEngLang, arrayNumLang, arraySymLang):
     return countingWord
 
 def machine_detect_data(df):
-    with open('./model/model_knn.pkl', 'rb') as f:
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    model_path = os.path.join(script_dir, 'model', 'model_knn_1_5_2.pkl')
+
+    with open(model_path, 'rb') as f:
         clf2 = pickle.load(f)
     predict = clf2.predict(df)
     df['predict'] = predict
@@ -788,7 +797,7 @@ def controller_save_db(df):
             elif el == 'refcode':
                 # print(el)
                 set_save_data['refcode'] = df.word[idx]
-        # print("set_save_data => ", set_save_data)
+        print("set_save_data => ", set_save_data)
         return "Inserted"
     except:
         print("can't insert into datastore.")
@@ -846,7 +855,7 @@ def set_struct():
                 data_predict = machine_detect_data(df_count)
                 data_predict['word'] = df.word
                 set_per_save = data_predict[['word', 'predict']]
-                # print(set_per_save)
+                print(set_per_save)
                 result = set_per_save.to_string(index = False) 
                 # status = controller_save_db(set_per_save)
                 feature_col.clear()
